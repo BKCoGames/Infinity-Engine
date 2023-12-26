@@ -71,4 +71,6 @@ public:
     static void CompileShaders();
 
     static void ResizeRendererToWindow(int Width, int Height);
+
+    static void SaveCompiledShader() {};
 };

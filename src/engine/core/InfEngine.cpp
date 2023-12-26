@@ -3,7 +3,7 @@
 //
 
 #include "InfEngine.h"
-#include "OpenGLStatics.h"
+#include "CoreIncludes.h"
 #include <SDL.h>
 #include <iostream>
 #include <renderer/IERenderer.h>

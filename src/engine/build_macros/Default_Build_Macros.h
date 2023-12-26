@@ -42,3 +42,8 @@
  * @brief Make the function no discard. equivalent to [[nodiscard]]
  */
 #define IE_NODISCARD [[nodiscard]]
+
+/**
+ * @brief Line break macro. equivalent to \n atm
+ */
+#define IE_LB "\n"
