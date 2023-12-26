@@ -11,7 +11,7 @@ const char *vertexShaderSource = "#version 330 core\n"
                                  "layout (location = 0) in vec3 aPos;\n"
                                  "void main()\n"
                                  "{\n"
-                                 "   gl_Position = vec4(aPos.xyz, 1.0);\n"
+                                 "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
                                  "}\0";
 
 const char *fragmentShaderSource = "#version 330 core\n"
@@ -68,20 +68,29 @@ IERenderer* IERenderer::initialize()
 
     glViewport(0, 0, 800, 600);
 
-    GLuint VBO;
+    GLuint VBO, EBO, VAO;
+    glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+    glBindVertexArray(VAO);
+
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), static_cast<void*>(0));
-    glEnableVertexAttribArray(0);
-
-    GLuint EBO;
-    glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
 
-    GLuint VAO;
-    glGenVertexArrays(1, &VAO);
+    // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
+    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+
 
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -91,12 +100,49 @@ IERenderer* IERenderer::initialize()
     return RendererInstance;
 }
 
-void IERenderer::PollFrameInputs(std::queue<SDL_Event>& OutEvents)
+void IERenderer::RenderFrame()
 {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        OutEvents.push(event);
-    }
+
+    // Rendering
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    float vertices[] = {
+            // first triangle
+            0.5f,  0.5f, 0.0f,  // top right
+            0.5f, -0.5f, 0.0f,  // bottom right
+            -0.5f,  0.5f, 0.0f,  // top left
+            // second triangle
+            0.5f, -0.5f, 0.0f,  // bottom right
+            -0.5f, -0.5f, 0.0f,  // bottom left
+            -0.5f,  0.5f, 0.0f   // top left
+    };
+
+    //float vertices[] = {
+    //        0.5f,  0.5f, 0.0f,  // top right
+    //        0.5f, -0.5f, 0.0f,  // bottom right
+    //        -0.5f, -0.5f, 0.0f,  // bottom left
+   //         -0.5f,  0.5f, 0.0f   // top left
+    //};
+
+    //unsigned int indices[] = {  // note that we start from 0!
+    //        0, 1, 3,   // first triangle
+    //        1, 2, 3    // second triangle
+    //};
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);`` 
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+
+    // Swap buffers
+    SDL_GL_SwapWindow(Window);
 }
 
 void IERenderer::CompileShaders()
@@ -154,31 +200,18 @@ void IERenderer::CompileShaders()
     glDeleteShader(fragmentShader);
 }
 
-void IERenderer::RenderFrame()
+
+void IERenderer::PollFrameInputs(std::queue<SDL_Event>& OutEvents)
 {
+    SDL_Event Event;
+    while (SDL_PollEvent(&Event)) {
+        OutEvents.push(Event);
+    }
+}
 
-    // Rendering
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    float vertices[] = {
-            0.5f,  0.5f, 0.0f,  // top right
-            0.5f, -0.5f, 0.0f,  // bottom right
-            -0.5f, -0.5f, 0.0f,  // bottom left
-            -0.5f,  0.5f, 0.0f   // top left
-    };
-    unsigned int indices[] = {  // note that we start from 0!
-            0, 1, 3,   // first triangle
-            1, 2, 3    // second triangle
-    };
-
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-
-    // Swap buffers
-    SDL_GL_SwapWindow(Window);
+void IERenderer::ResizeRendererToWindow(int Width, int Height)
+{
+    glViewport(0, 0, Width, Height);
 }
 
 void IERenderer::Destroy()
@@ -189,7 +222,4 @@ void IERenderer::Destroy()
     SDL_Quit();
 }
 
-void IERenderer::ResizeRendererToWindow(int Width, int Height)
-{
-    glViewport(0, 0, Width, Height);
-}
+
